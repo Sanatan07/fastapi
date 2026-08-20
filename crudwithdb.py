@@ -8,12 +8,12 @@
 
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 
 app = FastAPI()
 
 #specify a database url
-DATABASE_URL = "sqlite:///./dbintegration.db"
+DATABASE_URL = "sqlite:///./crudwithdb.db"
 
 #create a db connection
 engine = create_engine(
@@ -44,8 +44,31 @@ def get_db():
     finally:
         db.close()
 
-@app.get("/")
-def  home(db:Session = Depends(get_db)):
+#create api
+@app.post("/todos")
+def create_todo(title:str, db:Session = Depends(get_db)):
+    todo = Todo(title = title, completed = "False")
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
     return{
-        "message":"DB connected"
-    }   
+        "message":"Todo Created",
+        "data":todo
+    }
+#read all data
+@app.get("/todos")
+def get_todos(db:Session = Depends(get_db)):
+    todos = db.query(Todo).all()
+    return{
+        "Total":len(todos),
+        "data":todos
+    }
+
+
+@app.get("/todos/{todo_id}")
+def get_todo(todo_id = int, db: Session = Depends(get_db)):
+    todo = db.query(Todo).filter(Todo.id == todo_id).first()
+
+    if not todo:
+        raise HTTPException(status_code = 404, detail = "Todo not found")
+    return todo
